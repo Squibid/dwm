@@ -18,7 +18,7 @@ static const char *colors[][3]      = {
 };
 
 /* tagging */
-static const char *tags[] = { ">_", "</>", "III", "<D", "{}", "foo", "bar", "=#=", "--" };
+static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
 
 static const Rule rules[] = {
 	/* xprop(1):
@@ -45,6 +45,7 @@ static const Layout layouts[] = {
 
 /* key definitions */
 #define MODKEY Mod4Mask
+#define ALTKEY Mod1Mask
 #define TAGKEYS(KEY,TAG) \
 	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
 	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
@@ -57,13 +58,11 @@ static const Layout layouts[] = {
 /* commands */
 static const char *dmenucmd[] = { "dmenu_run", "-p", "run:", NULL };
 static const char *termcmd[]  = { "st", NULL };
-static const char *scratchpadcmd[] = { "st", "-t", "scratchpad", "-g", "120x34", NULL };
 
 static const Key keys[] = {
 	/* modifier                     key        function        argument */
 	{ MODKEY,                       XK_d,      spawn,          {.v = dmenucmd } },
 	{ MODKEY,                       XK_Return, spawn,          {.v = termcmd } },
-	{ MODKEY,                       XK_grave,  togglescratch,  {.v = scratchpadcmd } },
 	{ MODKEY,                       XK_b,      togglebar,      {0} },
 	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
 	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
@@ -72,6 +71,7 @@ static const Key keys[] = {
   { MODKEY,                       XK_p,      incnmaster,     {.i = 0 } },
 	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
 	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
+	{ MODKEY|ShiftMask,             XK_p,      setmfact,       {.f = 0 } },
 	{ MODKEY|ShiftMask,             XK_Return, zoom,           {0} },
 	{ MODKEY,                       XK_Tab,    view,           {0} },
 	{ MODKEY,                       XK_q,      killclient,     {0} },
@@ -80,6 +80,14 @@ static const Key keys[] = {
 	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
   { MODKEY|ShiftMask,             XK_f,      togglefullscreen, {0} },
 	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
+	{ ALTKEY,                       XK_j,      moveresize,     {.v = "0x 25y 0w 0h" } },
+	{ ALTKEY,                       XK_k,      moveresize,     {.v = "0x -25y 0w 0h" } },
+	{ ALTKEY,                       XK_l,      moveresize,     {.v = "25x 0y 0w 0h" } },
+	{ ALTKEY,                       XK_h,      moveresize,     {.v = "-25x 0y 0w 0h" } },
+	{ ALTKEY|ShiftMask,             XK_j,      moveresize,     {.v = "0x 0y 0w 25h" } },
+	{ ALTKEY|ShiftMask,             XK_k,      moveresize,     {.v = "0x 0y 0w -25h" } },
+	{ ALTKEY|ShiftMask,             XK_l,      moveresize,     {.v = "0x 0y 25w 0h" } },
+	{ ALTKEY|ShiftMask,             XK_h,      moveresize,     {.v = "0x 0y -25w 0h" } },
 	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
 	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
 	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
@@ -109,7 +117,7 @@ static const Button buttons[] = {
 	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
 	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
 	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
-	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
+  { ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
 	{ ClkTagBar,            0,              Button1,        view,           {0} },
 	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
 	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },

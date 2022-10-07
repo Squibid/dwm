@@ -185,6 +185,7 @@ static void mappingnotify(XEvent *e);
 static void maprequest(XEvent *e);
 static void monocle(Monitor *m);
 static void motionnotify(XEvent *e);
+static void moveresize(const Arg *arg);
 static void movemouse(const Arg *arg);
 static Client *nexttiled(Client *c);
 static void pop(Client *c);
@@ -217,7 +218,6 @@ static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
-static void togglescratch(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
@@ -288,8 +288,6 @@ struct Pertag {
 	const Layout *ltidxs[LENGTH(tags) + 1][2]; /* matrix of tags and layouts indexes  */
 	int showbars[LENGTH(tags) + 1]; /* display bar for the current tag */
 };
-
-static unsigned int scratchtag = 1 << LENGTH(tags);
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
@@ -1095,14 +1093,6 @@ manage(Window w, XWindowAttributes *wa)
 	c->y = MAX(c->y, c->mon->wy);
 	c->bw = borderpx;
 
-	selmon->tagset[selmon->seltags] &= ~scratchtag;
-  if (!strcmp(c->name, scratchpadcmd[2])) {
-	  c->mon->tagset[c->mon->seltags] |= c->tags = scratchtag;
-	  c->isfloating = True;
-	  c->x = c->mon->wx + (c->mon->ww / 2 - WIDTH(c) / 2);
-	  c->y = c->mon->wy + (c->mon->wh / 2 - HEIGHT(c) / 2);
-  }
-
 	wc.border_width = c->bw;
 	XConfigureWindow(dpy, w, CWBorderWidth, &wc);
 	XSetWindowBorder(dpy, w, scheme[SchemeNorm][ColBorder].pixel);
@@ -1261,6 +1251,68 @@ movemouse(const Arg *arg)
 		sendmon(c, m);
 		selmon = m;
 		focus(NULL);
+	}
+}
+
+void
+moveresize(const Arg *arg) {
+	/* only floating windows can be moved */
+	Client *c;
+	c = selmon->sel;
+	int x, y, w, h, nx, ny, nw, nh, ox, oy, ow, oh;
+	char xAbs, yAbs, wAbs, hAbs;
+	int msx, msy, dx, dy, nmx, nmy;
+	unsigned int dui;
+	Window dummy;
+
+	if (!c || !arg)
+		return;
+	if (selmon->lt[selmon->sellt]->arrange && !c->isfloating)
+		return;
+	if (sscanf((char *)arg->v, "%d%c %d%c %d%c %d%c", &x, &xAbs, &y, &yAbs, &w, &wAbs, &h, &hAbs) != 8)
+		return;
+
+	/* compute new window position; prevent window from be positioned outside the current monitor */
+	nw = c->w + w;
+	if (wAbs == 'W')
+		nw = w < selmon->mw - 2 * c->bw ? w : selmon->mw - 2 * c->bw;
+	nh = c->h + h;
+	if (hAbs == 'H')
+		nh = h < selmon->mh - 2 * c->bw ? h : selmon->mh - 2 * c->bw;
+	nx = c->x + x;
+	if (xAbs == 'X') {
+		if (x < selmon->mx)
+			nx = selmon->mx;
+		else if (x > selmon->mx + selmon->mw)
+			nx = selmon->mx + selmon->mw - nw - 2 * c->bw;
+		else
+			nx = x;
+	}
+
+	ny = c->y + y;
+	if (yAbs == 'Y') {
+		if (y < selmon->my)
+			ny = selmon->my;
+		else if (y > selmon->my + selmon->mh)
+			ny = selmon->my + selmon->mh - nh - 2 * c->bw;
+		else
+			ny = y;
+	}
+
+	ox = c->x;
+	oy = c->y;
+	ow = c->w;
+	oh = c->h;
+
+	XRaiseWindow(dpy, c->win);
+	Bool xqp = XQueryPointer(dpy, root, &dummy, &dummy, &msx, &msy, &dx, &dy, &dui);
+	resize(c, nx, ny, nw, nh, True);
+
+	/* move cursor along with the window to avoid problems caused by the sloppy focus */
+	if (xqp && ox <= msx && (ox + ow) >= msx && oy <= msy && (oy + oh) >= msy) {
+		nmx = c->x - ox + c->w - ow;
+		nmy = c->y - oy + c->h - oh;
+		XWarpPointer(dpy, None, None, 0, 0, 0, 0, nmx, nmy);
 	}
 }
 
@@ -1599,10 +1651,12 @@ setmfact(const Arg *arg)
 {
 	float f;
 
+  if (arg->f == 0)
+	  selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag] = mfact;
 	if (!arg || !selmon->lt[selmon->sellt]->arrange)
 		return;
 	f = arg->f < 1.0 ? arg->f + selmon->mfact : arg->f - 1.0;
-	if (f < 0.05 || f > 0.95)
+  if (f < 0.05 || f > 0.95)
 		return;
 	selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag] = f;
 	arrange(selmon);
@@ -1739,7 +1793,6 @@ sigterm(int unused)
 void
 spawn(const Arg *arg)
 {
-  selmon->tagset[selmon->seltags] &= ~scratchtag;
 	if (fork() == 0) {
 		if (dpy)
 			close(ConnectionNumber(dpy));
@@ -1841,28 +1894,6 @@ togglefullscreen(const Arg *arg)
     setlayout(&((Arg) { .v = last_layout }));
   }
   togglebar(arg);
-}
-
-void
-togglescratch(const Arg *arg)
-{
-	Client *c;
-	unsigned int found = 0;
-
-	for (c = selmon->clients; c && !(found = c->tags & scratchtag); c = c->next);
-	if (found) {
-		unsigned int newtagset = selmon->tagset[selmon->seltags] ^ scratchtag;
-		if (newtagset) {
-			selmon->tagset[selmon->seltags] = newtagset;
-			focus(NULL);
-			arrange(selmon);
-		}
-		if (ISVISIBLE(c)) {
-			focus(c);
-			restack(selmon);
-		}
-	} else
-		spawn(arg);
 }
 
 void

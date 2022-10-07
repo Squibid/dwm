@@ -14,12 +14,13 @@ dwm-noborderfloatingfix-6.2.diff
 dwm-pertag-20200914-61bb8b2.diff  
 dwm-preserveonrestart-6.3.diff  
 dwm-restartsig-20180523-6.2.diff  
-dwm-scratchpad-6.2.diff
+dwm-moveresize-6.2.diff
 
 Customizations
 --------------
-- added keybind to reset master number to default
-- show master number in []= when not equal to default
+- added keybind to reset number of master clients to nmaster
+- added keybind to reset size of master and stack split to mfact
+- show master number in []= when not equal to nmaster
 - replace M in [M] with number of clients when over 1
 - made the window title color always show despite that monitor not
 being focused
